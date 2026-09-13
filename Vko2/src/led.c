@@ -5,7 +5,9 @@
 #include <zephyr/sys/util.h>
 #include <inttypes.h>
 
-//Tavoitteena 2 viikolta täydet pisteet!
+//Tavoitteena 2 viikolta täydet pisteet! 
+// tehtynä: vihreä, keltainen, punainen ledi sekä sinisen ledin alustus.
+//Lisäksi napit 0-4 eli 0: pysäyttää, 1: punainen 2:keltainen, 3: vihreä, 4: vilkkuva keltainen. 
 
 // Led pin configurations
 static const struct gpio_dt_spec red = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
