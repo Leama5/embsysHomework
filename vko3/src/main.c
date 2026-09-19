@@ -10,9 +10,10 @@
  * CONFIG_HEAP_MEM_POOL_SIZE=1024
  * to prj.conf
  ****************************/
-
- //Perustehtävät tehtynä tavoitteena tehdä myös lisää lisäominaisuuksia tulevina viikkoina
-
+/*yritys tehdä sekvenssin ajastus, mutta en saa toimimaan sekvenssinä, 
+ainoastaan yksi kerrallaan lähetettynä sarjaporttiin.
+//Perustehtävät tehtynä tavoitteena tehdä myös lisää lisäominaisuuksia tulevina viikkoina
+*/
 // Led pin configurations
 static const struct gpio_dt_spec red = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
 static const struct gpio_dt_spec green = GPIO_DT_SPEC_GET(DT_ALIAS(led1), gpios);
