@@ -12,8 +12,11 @@
  * to prj.conf
  ****************************/
 
- //Vko 4 Perustehtävä tehty siten että valotaskien ajat sekä sekvenssin ajat lasketaan.
- //Vko 3Perustehtävät tehtynä tavoitteena tehdä myös lisää lisäominaisuuksia tulevina viikkoina
+ //vko 4 tavoitteena tehdä lisätehtävät myöhemmin
+ //Vko 4 Perustehtävä tehty siten että valotaskien ajat sekä sekvenssin ajat lasketaan. Kommenteissa muut printit paitsi taskien ajat
+  //vko 3 yritin tehdä sekvenssiin ajastuksen, mutta ei toimi tällä terminaalilla niin jatkoin aiemmalla koodilla vko4 tehtäviin.
+ //Vko 3 Perustehtävät tehtynä tavoitteena tehdä myös lisää lisäominaisuuksia tulevina viikkoina 
+
 
 // Led pin configurations
 static const struct gpio_dt_spec red = GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios);
@@ -290,20 +293,20 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
                         timing_t sequence_start_time=timing_counter_get();
 
 			if(sequence[cnt] == 'R'){
-				printk("Red");
+				//printk("Red");
 				//lähetetään signaali red valotaskille
 				k_condvar_broadcast(&red_signal);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
 			if (sequence[cnt] == 'Y'){
-				printk("Yellow");
+				//printk("Yellow");
 				k_condvar_broadcast(&yellow_signal);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
 			if (sequence[cnt] == 'G'){
-				printk("Green");
+				//printk("Green");
 				k_condvar_broadcast(&green_signal);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 			}
@@ -319,7 +322,7 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
 // Task to handle red led
 void red_led_task(void *, void *, void*) {
 	
-	printk("Red led thread started\n");
+	//printk("Red led thread started\n");
 	while (true) {
                 
 		k_condvar_wait(&red_signal, &red_mutex, K_FOREVER);
@@ -334,17 +337,17 @@ void red_led_task(void *, void *, void*) {
 		gpio_pin_set_dt(&red,0);
 		//printk("Red off\n");
 
-                timing_t red_end_time = timing_counter_get();
-    	        uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&red_start_time, &red_end_time));
+        timing_t red_end_time = timing_counter_get();
+    	uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&red_start_time, &red_end_time));
 		printk("Red task: %llu us\n", timing_us/1000);
 		
-                k_condvar_broadcast(&release_signal);
+        k_condvar_broadcast(&release_signal);
 	}
 }
 // Task to handle yellow led
 void yellow_led_task(void *, void *, void*) {
 	
-	printk("Yellow led thread started\n");
+	//printk("Yellow led thread started\n");
 	while (true) {
 		k_condvar_wait(&yellow_signal, &yellow_mutex, K_FOREVER);
 
@@ -370,7 +373,7 @@ void yellow_led_task(void *, void *, void*) {
 // Task to handle green led
 void green_led_task(void *, void *, void*) {
 	
-	printk("Green led thread started\n");
+	//printk("Green led thread started\n");
 	while (true) {
 		k_condvar_wait(&green_signal, &green_mutex, K_FOREVER);
 
