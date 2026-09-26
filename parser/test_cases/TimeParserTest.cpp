@@ -54,8 +54,8 @@ TEST(TimeParserTest, TestTooLargeHours) {
 }
 TEST(TimeParserTest, TestNegativeSeconds) {
 
-    char time_test[] = "00000-6";
-    EXPECT_EQ(time_parse(time_test), TIME_LEN_ERROR );  
+    char time_test[] = "0000-6";
+    EXPECT_EQ(time_parse(time_test), TIME_NUMBER_ERROR );  
 }
 
 TEST(TimeParserTest, TestTooShortString) {
@@ -64,6 +64,13 @@ TEST(TimeParserTest, TestTooShortString) {
     EXPECT_EQ(time_parse(time_test),TIME_LEN_ERROR);
 
 }
+TEST(TimeParserTest, TestCorrectString) {
+
+    char time_test[] = "001000";
+    EXPECT_EQ(time_parse(time_test),600);
+
+}
+
 TEST(TimeParserTest, TestTooLongString) {
 
     char time_test[] = "00007700";
@@ -72,6 +79,20 @@ TEST(TimeParserTest, TestTooLongString) {
 }
 TEST(TimeParserTest, TestNullPointer){
     EXPECT_EQ(time_parse(NULL),TIME_ARRAY_ERROR);
+}
+TEST(TimeParserTest, TestOnlyNumbers) {
+
+    // Oikeellinen suoritus
+    char correct_time[] = "120530";
+    EXPECT_EQ(time_parse(correct_time), 330);
+
+    // Virheellinen: sisältää kirjaimen
+    char letter[] = "12A530";
+    EXPECT_EQ(time_parse(letter), TIME_NUMBER_ERROR);
+
+    // Virheellinen: sisältää erikoismerkin
+    char special_char[] = "1205-0";
+    EXPECT_EQ(time_parse(special_char), TIME_NUMBER_ERROR);
 }
 
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "TimeParser.h"
 
 
@@ -16,6 +17,11 @@ int time_parse(char *time) {
 
 	if (strlen(time) != 6) {
     	return TIME_LEN_ERROR;
+	}
+	for (int i=0; i<6; i++){
+		if (!isdigit((unsigned char)time[i])){
+			return TIME_NUMBER_ERROR;
+		}
 	}
 
 		// Parse values from time string
