@@ -2,6 +2,7 @@
 #include <string.h>
 #include "TimeParser.h"
 
+
 // time format: HHMMSS (6 characters)
 int time_parse(char *time) {
 	
@@ -40,6 +41,9 @@ int time_parse(char *time) {
 		//hours values[0]*3600+
 		//only minutes and seconds 
 			seconds= values[1]*60+ values[2];
+			if (seconds==0){
+				return TIME_ZERO_ERROR;
+			}
 			return seconds;
 		}
 		else{
