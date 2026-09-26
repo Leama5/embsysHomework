@@ -12,6 +12,7 @@
  * to prj.conf
  ****************************/
 
+ 
  //vko 4 tavoitteena tehdä lisätehtävät myöhemmin
  //Vko 4 Perustehtävä tehty siten että valotaskien ajat sekä sekvenssin ajat lasketaan. Kommenteissa muut printit paitsi taskien ajat
   //vko 3 yritin tehdä sekvenssiin ajastuksen, mutta ei toimi tällä terminaalilla niin jatkoin aiemmalla koodilla vko4 tehtäviin.
