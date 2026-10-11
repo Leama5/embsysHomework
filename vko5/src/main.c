@@ -14,7 +14,7 @@
  * CONFIG_TIMING_FUNCTIONS=y
  * to prj.conf
  ****************************/
-
+ // vko 3 lisätehtävä while loopit poistettu valotaskeista
  //vko 5 perustehtävät ja +1p koska parserissa pituuden tarkastus, Nullin tarkastus, 0sekunnin tarkastus sekä pelkät nunmerot.
  //vko 4 tavoitteena tehdä lisätehtävät myöhemmin
  //Vko 4 Perustehtävä tehty siten että valotaskien ajat sekä sekvenssin ajat lasketaan. Kommenteissa muut printit paitsi taskien ajat
@@ -70,26 +70,22 @@ int button2=0;
 int button3=0;
 int button4=0;
 
+void red_led_work_handler(struct k_work *work);
+void yellow_led_work_handler(struct k_work *work);
+void yellow_flash_work_handler(struct k_work *work);
+void green_led_work_handler(struct k_work *work);
 
-K_THREAD_DEFINE(timer_red_thread,STACKSIZE,red_led_task,NULL,NULL,NULL,PRIORITY,0,0);
-K_THREAD_DEFINE(red_thread,STACKSIZE,red_led_task,NULL,NULL,NULL,PRIORITY,0,0);
-K_THREAD_DEFINE(yellow_thread,STACKSIZE,yellow_led_task,NULL,NULL,NULL,PRIORITY,0,0);
-K_THREAD_DEFINE(yellow_flash_thread,STACKSIZE,yellow_flash_task,NULL,NULL,NULL,PRIORITY,0,0);
-K_THREAD_DEFINE(green_thread,STACKSIZE,green_led_task,NULL,NULL,NULL,PRIORITY,0,0);
+struct k_work red_work;
+struct k_work yellow_work;
+struct k_work yellow_flash_work;
+struct k_work green_work;
 // UART initialization
 #define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
 static const struct device *const uart_dev = DEVICE_DT_GET(UART_DEVICE_NODE);
 
 //Condition Variables
-K_MUTEX_DEFINE(red_mutex);
-K_CONDVAR_DEFINE(red_signal);
-K_MUTEX_DEFINE(yellow_mutex);
-K_CONDVAR_DEFINE(yellow_signal);
-K_MUTEX_DEFINE(green_mutex);
-K_CONDVAR_DEFINE(green_signal);
 K_MUTEX_DEFINE(release_mutex);
 K_CONDVAR_DEFINE(release_signal);
-
 
 // Create dispatcher FIFO buffer
 K_FIFO_DEFINE(dispatcher_fifo);
@@ -102,6 +98,68 @@ struct data_t {
 	void *fifo_reserved;
 	char msg[20];
 };
+
+void red_led_work_handler(struct k_work *work)
+{
+
+	timing_t red_start_time =timing_counter_get();
+
+	gpio_pin_set_dt(&red,1);
+	k_sleep(K_SECONDS(1));
+	gpio_pin_set_dt(&red,0);
+	
+	timing_t red_end_time = timing_counter_get();
+	uint64_t timing_us= timing_cycles_to_ns(timing_cycles_get(&red_start_time, &red_end_time));
+
+	k_condvar_broadcast(&release_signal);
+}
+void yellow_led_work_handler(struct k_work *work)
+{
+	timing_t yellow_start_time = timing_counter_get();
+
+	gpio_pin_set_dt(&red, 1);
+	gpio_pin_set_dt(&green, 1);
+	k_sleep(K_SECONDS(1));
+	gpio_pin_set_dt(&red, 0);
+	gpio_pin_set_dt(&green, 0);
+
+	timing_t yellow_end_time = timing_counter_get();
+	uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&yellow_start_time, &yellow_end_time));
+	printk("Yellow task: %llu us\n", timing_us / 1000);
+
+	k_condvar_broadcast(&release_signal);
+}
+void yellow_flash_work_handler(struct k_work *work)
+{
+	if (button4 ==1){
+		gpio_pin_set_dt(&red,1);
+		gpio_pin_set_dt(&green,1);
+		k_sleep(K_SECONDS(1));
+		gpio_pin_set_dt(&red,0);
+		gpio_pin_set_dt(&green,0);
+		k_sleep(K_SECONDS(1));
+		}
+		else{
+			k_msleep(10);
+		}
+	k_condvar_broadcast(&release_signal);
+}
+
+void green_led_work_handler(struct k_work *work)
+{
+	timing_t green_start_time = timing_counter_get();
+
+	gpio_pin_set_dt(&green, 1);
+	k_sleep(K_SECONDS(1));
+	gpio_pin_set_dt(&green, 0);
+
+	timing_t green_end_time = timing_counter_get();
+	uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&green_start_time, &green_end_time));
+	printk("Green task: %llu us\n", timing_us / 1000);
+
+	k_condvar_broadcast(&release_signal);
+}
+
 void button_0_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
 	printk("Button pressed\n");
@@ -112,18 +170,18 @@ void button_1_handler(const struct device *dev, struct gpio_callback *cb, uint32
 {
 	printk("1 Button pressed\n");
 	//lähetetään signaali red valotaskille
-	k_condvar_broadcast(&red_signal);
+	k_work_submit(&red_work);
 }
 void button_2_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
 	printk("2 button pressed \n");
-	k_condvar_broadcast(&yellow_signal);
+	k_work_submit(&yellow_work);
 
 }
 void button_3_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
 	printk("3 Button pressed\n");
-	k_condvar_broadcast(&green_signal);
+	k_work_submit(&green_work);
 }
 void button_4_handler(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
@@ -242,7 +300,12 @@ int main(void)
 	init_button();
 	//Timer initialization
 	k_timer_init(&timer, timer_handler,NULL);
-       
+    
+	k_work_init(&red_work, red_led_work_handler);
+	k_work_init(&yellow_work, yellow_led_work_handler);
+	k_work_init(&yellow_flash_work, yellow_flash_work_handler);
+	k_work_init(&green_work, green_led_work_handler);
+
 	return 0;
 }
 
@@ -389,35 +452,35 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
 
 		printk("Dispatcher: %s\n", sequence);
 		int cnt=0;
-                //Ajastin
-                timing_t sequence_start_time=timing_counter_get();
+        //Ajastin
+        timing_t sequence_start_time=timing_counter_get();
+		k_mutex_lock(&release_mutex, K_FOREVER);
+
 		//tulostetaan merkki kerrallaan
 		while (sequence[cnt] != 0){
-                        timing_t sequence_start_time=timing_counter_get();
-
 			if(sequence[cnt] == 'R'){
 				//printk("Red");
 				//lähetetään signaali red valotaskille
-				k_condvar_broadcast(&red_signal);
+				k_work_submit(&red_work);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
 			if (sequence[cnt] == 'Y'){
 				//printk("Yellow");
-				k_condvar_broadcast(&yellow_signal);
+				k_work_submit(&yellow_work);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
 			if (sequence[cnt] == 'G'){
 				//printk("Green");
-				k_condvar_broadcast(&green_signal);
+				k_work_submit(&green_work);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 			}
-		cnt++;
-                }
-        
-                timing_t sequence_end_time=timing_counter_get();
-                uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&sequence_start_time, &sequence_end_time));
+			cnt++;
+            }
+			k_mutex_unlock(&release_mutex);
+            timing_t sequence_end_time=timing_counter_get();
+            uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&sequence_start_time, &sequence_end_time));
 	        printk("Sequence time: %lld\n", timing_us/1000);
         }
 }
@@ -441,99 +504,6 @@ void timer_led_task(void *, void *, void *){
 		gpio_pin_set_dt(&red,0);
 		//printk("Red off\n");
     }
-}
-
-// Task to handle red led
-void red_led_task(void *, void *, void*) {
-	
-	//printk("Red led thread started\n");
-	while (true) {
-                
-		k_condvar_wait(&red_signal, &red_mutex, K_FOREVER);
-		timing_t red_start_time = timing_counter_get();
-			// 1. set led on 
-		gpio_pin_set_dt(&red,1);
-		//printk("Red on\n");
-			// 2. sleep for 2 seconds
-		k_sleep(K_SECONDS(1));
-			// 3. set led off
-		
-		gpio_pin_set_dt(&red,0);
-		//printk("Red off\n");
-
-        timing_t red_end_time = timing_counter_get();
-    	uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&red_start_time, &red_end_time));
-		printk("Red task: %llu us\n", timing_us/1000);
-		
-        k_condvar_broadcast(&release_signal);
-	}
-}
-// Task to handle yellow led
-void yellow_led_task(void *, void *, void*) {
-	
-	//printk("Yellow led thread started\n");
-	while (true) {
-		k_condvar_wait(&yellow_signal, &yellow_mutex, K_FOREVER);
-
-		timing_t yellow_start_time = timing_counter_get();
-
-		gpio_pin_set_dt(&red,1);
-		gpio_pin_set_dt(&green,1);
-		//printk("Yellow on\n");
-			// 2. sleep for 1 seconds
-		k_sleep(K_SECONDS(1));
-			// 3. set led off
-		gpio_pin_set_dt(&red,0);
-		gpio_pin_set_dt(&green,0);
-		//printk("Yellow off\n");
-
-                timing_t yellow_end_time = timing_counter_get();
-    	        uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&yellow_start_time, &yellow_end_time));
-		printk("Yellow task: %llu us\n", timing_us/1000);
-
-		k_condvar_broadcast(&release_signal);
-	}
-}
-// Task to handle green led
-void green_led_task(void *, void *, void*) {
-	
-	//printk("Green led thread started\n");
-	while (true) {
-		k_condvar_wait(&green_signal, &green_mutex, K_FOREVER);
-
-                timing_t green_start_time = timing_counter_get();
-			// 1. set led on 
-		gpio_pin_set_dt(&green,1);
-		//printk("Green on\n");
-			// 2. sleep for 2 seconds
-		k_sleep(K_SECONDS(1));
-			// 3. set led off
-		gpio_pin_set_dt(&green,0);
-		//printk("Green off\n");
-
-                timing_t green_end_time = timing_counter_get();
-    	        uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&green_start_time, &green_end_time));
-		printk("Green task: %llu us\n", timing_us/1000);
-
-		k_condvar_broadcast(&release_signal);
-                
-	}
-}
-
-void yellow_flash_task(void *, void *, void *){
-	while (true){
-		if (button4 ==1){
-		gpio_pin_set_dt(&red,1);
-		gpio_pin_set_dt(&green,1);
-		k_sleep(K_SECONDS(1));
-		gpio_pin_set_dt(&red,0);
-		gpio_pin_set_dt(&green,0);
-		k_sleep(K_SECONDS(1));
-		}
-		else{
-			k_msleep(10);
-		}
-	}
 }
 
 
