@@ -15,6 +15,7 @@
  * CONFIG_TIMING_FUNCTIONS=y
  * to prj.conf
  ****************************/
+//Vko 3 lisätehtävä T merkillä toistaa edellisen 
 //vko 6 perustehtävä +1 suoritus lisättyjä aikamerkkijonon testejä.
  // vko 3 lisätehtävä while loopit poistettu valotaskeista
  //vko 5 perustehtävät ja +1p koska parserissa pituuden tarkastus, Nullin tarkastus, 0sekunnin tarkastus sekä pelkät nunmerot.
@@ -62,7 +63,7 @@ static struct gpio_callback button_4_data;
 #define STACKSIZE 500
 #define PRIORITY 5
 
-
+static char previous_sequence[20] = {0};
 
 void yellow_flash_task(void *, void *, void *);
 
@@ -311,7 +312,7 @@ static void uart_task(void *unused1, void *unused2, void *unused3)
 		if (uart_poll_in(uart_dev,&rc) == 0) {
 			//printk("Received: %c\n",rc);
 			// If character is not newline, add to UART message buffer
-			if (rc =='X') {
+			if (rc=='\n' ||rc=='\r'|| rc =='X') {
 				if (uart_msg_cnt>0){
 					uart_msg[uart_msg_cnt]='\0';
 					//printk("UART msg: %s\n", uart_msg);
@@ -322,7 +323,8 @@ static void uart_task(void *unused1, void *unused2, void *unused3)
 					}
 					if (uart_msg[0]=='R'||
 						uart_msg[0]=='Y'||
-						uart_msg[0]=='G'){
+						uart_msg[0]=='G'||
+						uart_msg[0]=='T' ){
 							// Copy UART message to dispatcher data
 						snprintf(buf->msg, 20, "%s", uart_msg);
 
@@ -437,6 +439,28 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
 		memcpy(sequence,rec_item->msg,20);
 		k_free(rec_item);
 
+		if (sequence[0] == 'T' && sequence[1] == '\0') {
+			if (previous_sequence[0] != '\0') {
+				snprintf(sequence, 20, "%sT", previous_sequence);
+				printk("vanha sekvenssi: %s\n", sequence);
+			} else {
+				printk("Dispatcher: Ei edellistä sekvenssiä muistissa!\n");
+				continue; 
+			}
+		} else {
+			int i = 0;
+			int save_idx=0;
+			memset(previous_sequence, 0, 20);
+			while (sequence[i] != '\0' && i < 19) {
+				previous_sequence[i] = sequence[i];
+				if (sequence[i] == 'R' || sequence[i] == 'Y' || sequence[i] == 'G') {
+					previous_sequence[save_idx] = sequence[i];
+					save_idx++;
+				}
+				i++;
+			}
+		}
+
 		printk("Dispatcher: %s\n", sequence);
 		int cnt=0;
         //Ajastin
@@ -452,24 +476,30 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
-			if (sequence[cnt] == 'Y'){
+			else if (sequence[cnt] == 'Y'){
 				//printk("Yellow");
 				k_work_submit(&yellow_work);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 		
 			}
-			if (sequence[cnt] == 'G'){
+			else if (sequence[cnt] == 'G'){
 				//printk("Green");
 				k_work_submit(&green_work);
 				k_condvar_wait(&release_signal, &release_mutex, K_FOREVER);
 			}
+			// LISÄTTY: Jos kohdataan 'T', aloitetaan sekvenssi alusta
+			else if (sequence[cnt] == 'T'){
+				sequence[cnt] = '\0';
+				cnt = 0; // Asetetaan indeksi takaisin alkuun
+				continue; // Hypätään suoraan loopin alkuun, ohittaen cnt++
+			}
 			cnt++;
-            }
-			k_mutex_unlock(&release_mutex);
-            timing_t sequence_end_time=timing_counter_get();
-            uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&sequence_start_time, &sequence_end_time));
-	        //printk("Sequence time: %lld\n", timing_us/1000);
         }
+		k_mutex_unlock(&release_mutex);
+        timing_t sequence_end_time=timing_counter_get();
+        uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&sequence_start_time, &sequence_end_time));
+	    //printk("Sequence time: %lld\n", timing_us/1000);
+    }
 }
 
 void timer_handler(struct k_timer *timer_id){
