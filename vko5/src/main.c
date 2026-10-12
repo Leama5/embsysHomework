@@ -5,6 +5,7 @@
 #include <zephyr/drivers/uart.h>
 #include <zephyr/timing/timing.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -14,6 +15,7 @@
  * CONFIG_TIMING_FUNCTIONS=y
  * to prj.conf
  ****************************/
+//vko 6 perustehtävä +1 suoritus lisättyjä aikamerkkijonon testejä.
  // vko 3 lisätehtävä while loopit poistettu valotaskeista
  //vko 5 perustehtävät ja +1p koska parserissa pituuden tarkastus, Nullin tarkastus, 0sekunnin tarkastus sekä pelkät nunmerot.
  //vko 4 tavoitteena tehdä lisätehtävät myöhemmin
@@ -60,10 +62,10 @@ static struct gpio_callback button_4_data;
 #define STACKSIZE 500
 #define PRIORITY 5
 
-void red_led_task(void *, void *, void*);
-void yellow_led_task(void *, void *, void *);
+
+
 void yellow_flash_task(void *, void *, void *);
-void green_led_task(void *, void *, void *);
+
 
 int button1=0;
 int button2=0;
@@ -72,12 +74,10 @@ int button4=0;
 
 void red_led_work_handler(struct k_work *work);
 void yellow_led_work_handler(struct k_work *work);
-void yellow_flash_work_handler(struct k_work *work);
 void green_led_work_handler(struct k_work *work);
 
 struct k_work red_work;
 struct k_work yellow_work;
-struct k_work yellow_flash_work;
 struct k_work green_work;
 // UART initialization
 #define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
@@ -110,7 +110,7 @@ void red_led_work_handler(struct k_work *work)
 	
 	timing_t red_end_time = timing_counter_get();
 	uint64_t timing_us= timing_cycles_to_ns(timing_cycles_get(&red_start_time, &red_end_time));
-
+	printk("Red task: %llu us\n", timing_us / 1000);
 	k_condvar_broadcast(&release_signal);
 }
 void yellow_led_work_handler(struct k_work *work)
@@ -127,21 +127,6 @@ void yellow_led_work_handler(struct k_work *work)
 	uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&yellow_start_time, &yellow_end_time));
 	printk("Yellow task: %llu us\n", timing_us / 1000);
 
-	k_condvar_broadcast(&release_signal);
-}
-void yellow_flash_work_handler(struct k_work *work)
-{
-	if (button4 ==1){
-		gpio_pin_set_dt(&red,1);
-		gpio_pin_set_dt(&green,1);
-		k_sleep(K_SECONDS(1));
-		gpio_pin_set_dt(&red,0);
-		gpio_pin_set_dt(&green,0);
-		k_sleep(K_SECONDS(1));
-		}
-		else{
-			k_msleep(10);
-		}
 	k_condvar_broadcast(&release_signal);
 }
 
@@ -303,7 +288,6 @@ int main(void)
     
 	k_work_init(&red_work, red_led_work_handler);
 	k_work_init(&yellow_work, yellow_led_work_handler);
-	k_work_init(&yellow_flash_work, yellow_flash_work_handler);
 	k_work_init(&green_work, green_led_work_handler);
 
 	return 0;
@@ -327,10 +311,10 @@ static void uart_task(void *unused1, void *unused2, void *unused3)
 		if (uart_poll_in(uart_dev,&rc) == 0) {
 			//printk("Received: %c\n",rc);
 			// If character is not newline, add to UART message buffer
-			if (rc == '\r' || rc=='\n') {
+			if (rc =='X') {
 				if (uart_msg_cnt>0){
 					uart_msg[uart_msg_cnt]='\0';
-					printk("UART msg: %s\n", uart_msg);
+					//printk("UART msg: %s\n", uart_msg);
 					struct data_t *buf = k_malloc(sizeof(struct data_t));
 
 					if (buf == NULL) {
@@ -347,25 +331,28 @@ static void uart_task(void *unused1, void *unused2, void *unused3)
 					else{
 				
 						int ret =time_parse(uart_msg);
-						printk("Parsed time = %d \n", ret);
+						//printk("Parsed time = %d \n", ret);
 
 						if (ret>0){
 						
 						k_timer_start(&timer, K_SECONDS(ret), K_NO_WAIT);
-						printk("Timer started");
-
+						//printk("Timer started");
+						printk("%dX", ret);
 						}
-						else if(ret ==TIME_VALUE_ERROR){
-							printk("Time value error");
+						else if(ret == TIME_VALUE_ERROR){
+							printk("-3X");
 						}
-						else if(ret ==TIME_LEN_ERROR){
-							printk("Time length error");
+						else if(ret == TIME_LEN_ERROR){
+							printk("-1X"); 
 						}
-						else if(ret ==TIME_ARRAY_ERROR){
-							printk("Time array error");
+						else if(ret == TIME_ARRAY_ERROR){
+							printk("-2X");
 						}
-						else if(ret ==TIME_ZERO_ERROR){
-							printk("Time zero error");
+						else if(ret == TIME_ZERO_ERROR){
+							printk("-4X");
+						}
+						else if (ret == TIME_NUMBER_ERROR){
+							printk("-5X");
 						}
 					}	
 				}
@@ -481,12 +468,12 @@ static void dispatcher_task(void *unused1, void *unused2, void *unused3)
 			k_mutex_unlock(&release_mutex);
             timing_t sequence_end_time=timing_counter_get();
             uint64_t timing_us = timing_cycles_to_ns(timing_cycles_get(&sequence_start_time, &sequence_end_time));
-	        printk("Sequence time: %lld\n", timing_us/1000);
+	        //printk("Sequence time: %lld\n", timing_us/1000);
         }
 }
 
 void timer_handler(struct k_timer *timer_id){
-	printk("Timer expired");
+	//printk("Timer expired");
 	//k_condvar_broadcast(&red_signal);
 	k_sem_give(&timer_sem);
 	
@@ -505,8 +492,23 @@ void timer_led_task(void *, void *, void *){
 		//printk("Red off\n");
     }
 }
+void yellow_flash_task(void *, void *, void *){
+	while (true){
+		if (button4 ==1){
+		gpio_pin_set_dt(&red,1);
+		gpio_pin_set_dt(&green,1);
+		k_sleep(K_SECONDS(1));
+		gpio_pin_set_dt(&red,0);
+		gpio_pin_set_dt(&green,0);
+		k_sleep(K_SECONDS(1));
+		}
+		else{
+			k_msleep(10);
+		}
+	}
+}
 
-
+K_THREAD_DEFINE( yellow_flash_thread,STACKSIZE,yellow_flash_task,NULL,NULL,NULL,PRIORITY, 0, 0);
 K_THREAD_DEFINE(dis_thread,STACKSIZE,dispatcher_task,NULL,NULL,NULL,PRIORITY,0,0);
 K_THREAD_DEFINE(uart_thread,STACKSIZE,uart_task,NULL,NULL,NULL,PRIORITY,0,0);
 K_THREAD_DEFINE(timer_led_thread,STACKSIZE,timer_led_task,NULL,NULL,NULL,PRIORITY,0,0);

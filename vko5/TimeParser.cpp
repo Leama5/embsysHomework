@@ -3,57 +3,48 @@
 #include <ctype.h>
 #include "TimeParser.h"
 
-
 // time format: HHMMSS (6 characters)
 int time_parse(char *time) {
 	
-	// how many seconds, default returns error
-	int seconds = TIME_LEN_ERROR;
-
-	// TODO: Check that string is not null
+	// Check that string is not null
 	if (time == NULL) {
 		return TIME_ARRAY_ERROR;
 	}
 
+	// 1. Tarkistetaan pituus (pitää olla tasan 6 merkkiä)
 	if (strlen(time) != 6) {
-    	return TIME_LEN_ERROR;
-	}
-	for (int i=0; i<6; i++){
-		if (!isdigit((unsigned char)time[i])){
-			return TIME_NUMBER_ERROR;
-		}
+		return TIME_LEN_ERROR; // -1
 	}
 
-		// Parse values from time string
-		// For example: 124033 -> 12hour 40min 33sec
-		int values[3];
-		values[2] = atoi(time+4); // seconds
-		time[4] = 0;
-		values[1] = atoi(time+2); // minutes
-		time[2] = 0;
-		values[0] = atoi(time); // hours
-		// Now you have:
-		// values[0] hour
-		// values[1] minute
-		// values[2] second
-
-		// TODO: Add boundary check time values: below zero or above limit not allowed
-		// limits are 59 for minutes, 23 for hours, etc
-		if (values[2]>=0 && values[2]<=59 && values[1]>=0 && values[1]<=59 && values[0]>= 0 && values[0]<=23){
-
-		// TODO: Calculate return value from the parsed minutes and seconds
-		// Otherwise error will be returned!
-		// seconds = ...
-		//hours values[0]*3600+
-		//only minutes and seconds 
-			seconds= values[1]*60+ values[2];
-			if (seconds==0){
-				return TIME_ZERO_ERROR;
-			}
-			return seconds;
+	// 2. Tarkistetaan, että kaikki merkit ovat numeroita
+	for (int i = 0; i < 6; i++) {
+		if (!isdigit((unsigned char)time[i])) {
+			return TIME_NUMBER_ERROR; // -5
 		}
-		else{
-			return TIME_VALUE_ERROR;
+	}
+
+	// Otetaan kopiot paloista turvallisesti TUHOAMATTA alkuperäistä merkkijonoa
+	char hour_str[3] = { time[0], time[1], '\0' };
+	char min_str[3]  = { time[2], time[3], '\0' };
+	char sec_str[3]  = { time[4], time[5], '\0' };
+
+	int hours   = atoi(hour_str);
+	int minutes = atoi(min_str);
+	int seconds = atoi(sec_str);
+
+	// 3. Rajatarkistukset
+	if (seconds >= 0 && seconds <= 59 && minutes >= 0 && minutes <= 59 && hours >= 0 && hours <= 23) {
+		
+		// Lasketaan kokonaissekunnit (tunnit * 3600 + minuutit * 60 + sekunnit)
+		int total_seconds = (hours * 3600) + (minutes * 60) + seconds;
+		
+		if (total_seconds == 0) {
+			return TIME_ZERO_ERROR; // -4
 		}
+		
+		return total_seconds;
+	} 
+	else {
+		return TIME_VALUE_ERROR; // -3
+	}
 }
-
