@@ -15,6 +15,7 @@
  * CONFIG_TIMING_FUNCTIONS=y
  * to prj.conf
  ****************************/
+// Yhteensä laskettuna kaikki tehtävät olisi 11 pistettä!
 //Vko 3 lisätehtävä T merkillä toistaa edellisen 
 //vko 6 perustehtävä +1 suoritus lisättyjä aikamerkkijonon testejä.
  // vko 3 lisätehtävä while loopit poistettu valotaskeista
